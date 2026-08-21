@@ -1,0 +1,16 @@
+{
+  "name": "Memuer | Social+",
+  "description": "Secure, fast, and minimalist messaging platform with end-to-end encryption, real-time calls, and AI assistance.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "notifications",
+    "display-capture"
+  ],
+  "majorCapabilities": [
+    "real-time-chat",
+    "video-calling",
+    "e2e-encryption",
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

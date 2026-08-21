@@ -1,0 +1,309 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Public and private user profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "status": { "type": "string" },
+        "publicKey": { "type": "string", "description": "Nacl public key for E2EE" },
+        "isOnline": { "type": "boolean" },
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "preferences": {
+          "type": "object",
+          "properties": {
+            "theme": { "type": "string" },
+            "animatedTheme": { "type": "boolean" },
+            "animationLook": { "type": "string" },
+            "chatBackground": { "type": "string" },
+            "pinnedChats": { "type": "array", "items": { "type": "string" } },
+            "hasSeenDemo": { "type": "boolean" }
+          }
+        },
+        "isHiddenFromDirectory": { "type": "boolean" },
+        "canMessageAnyone": { "type": "boolean" }
+      },
+      "required": ["uid", "displayName"]
+    },
+    "Chat": {
+      "title": "Chat Session",
+      "description": "Conversation between two or more users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["direct", "group"] },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "participantKeys": { 
+          "type": "object", 
+          "description": "Encrypted session keys for each participant (optional if using pure DHT E2EE, but helpful for group E2EE)" 
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "lastMessage": { "type": "string" },
+        "typing": { 
+          "type": "object", 
+          "description": "UserId to typing status (timestamp or boolean)" 
+        },
+        "archivedBy": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of user IDs who have archived this chat"
+        }
+      },
+      "required": ["type", "participants"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Encrypted message in a chat",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "content": { "type": "string", "description": "Base64 encoded encrypted content" },
+        "nonce": { "type": "string", "description": "Base64 encoded nonce for decryption" },
+        "type": { "type": "string", "enum": ["text", "file", "call"] },
+        "fileMetadata": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "size": { "type": "number" },
+            "mimeType": { "type": "string" },
+            "storagePath": { "type": "string" }
+          }
+        },
+        "reactions": {
+          "type": "object",
+          "description": "Emoji reactions mapping emoji to list of user IDs: { '👍': ['uid1', 'uid2'] }"
+        },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chatId", "senderId", "content", "nonce"]
+    },
+    "FriendRequest": {
+      "title": "Friend Request",
+      "description": "Request to establish a connection",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "declined"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["from", "to", "status", "createdAt"]
+    },
+    "SystemConfig": {
+      "title": "System Config",
+      "description": "Global maintenance and settings configuration",
+      "type": "object",
+      "properties": {
+        "maintenanceMode": { "type": "boolean" },
+        "maintenanceUntil": { "type": "string" },
+        "disableAI": { "type": "boolean" },
+        "disableAIUntil": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "systemAnnouncement": {
+          "type": "object",
+          "properties": {
+            "active": { "type": "boolean" },
+            "emoji": { "type": "string" },
+            "title": { "type": "string" },
+            "message": { "type": "string" },
+            "badge": { "type": "string" },
+            "theme": { "type": "string" },
+            "createdAt": { "type": "number" }
+          }
+        }
+      }
+    },
+    "SocialPost": {
+      "title": "Social Post",
+      "description": "A user post with caption and image",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "image": { "type": "string" },
+        "caption": { "type": "string" },
+        "location": { "type": "string" },
+        "likes": { "type": "number" },
+        "likedBy": { "type": "array", "items": { "type": "string" } },
+        "comments": { "type": "array", "items": { "type": "object" } },
+        "createdAt": { "type": "string" },
+        "isCustom": { "type": "boolean" },
+        "ownerId": { "type": "string" },
+        "views": { "type": "number" }
+      },
+      "required": ["username", "image"]
+    },
+    "MShort": {
+      "title": "M Short",
+      "description": "A vertical short video",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "caption": { "type": "string" },
+        "musicTitle": { "type": "string" },
+        "likes": { "type": "number" },
+        "likedBy": { "type": "array", "items": { "type": "string" } },
+        "commentsCount": { "type": "number" },
+        "isCustom": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "views": { "type": "number" }
+      },
+      "required": ["username", "videoUrl"]
+    },
+    "UserStory": {
+      "title": "User Story",
+      "description": "A temporary visual status story",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "avatar": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "text": { "type": "string" },
+        "hasViewed": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["username", "imageUrl"]
+    },
+    "SocialFollow": {
+      "title": "Social Follow",
+      "description": "Indicates user-to-user following links",
+      "type": "object",
+      "properties": {
+        "followerId": { "type": "string" },
+        "followedId": { "type": "string" },
+        "followedUsername": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["followerId"]
+    },
+    "SocialPlaylist": {
+      "title": "Social Playlist",
+      "description": "A playlist of saved posts or shorts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "object" } }
+      },
+      "required": ["name", "ownerId"]
+    },
+    "CallCenterConfig": {
+      "title": "Call Center Config",
+      "description": "Pre-recorded greeting messages, custom IVR prompts, and hold music settings",
+      "type": "object",
+      "properties": {
+        "greetingAudioUrl": { "type": "string" },
+        "greetingAudioName": { "type": "string" },
+        "greetingAudioDuration": { "type": "number" },
+        "greetingTextAr": { "type": "string" },
+        "greetingTextEn": { "type": "string" },
+        "langPromptText": { "type": "string" },
+        "pleaseWaitTextAr": { "type": "string" },
+        "pleaseWaitTextEn": { "type": "string" },
+        "lateWaitTextAr": { "type": "string" },
+        "lateWaitTextEn": { "type": "string" },
+        "holdMusicKey": { "type": "string" },
+        "customHoldMusicUrl": { "type": "string" },
+        "customHoldMusicName": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string" }
+      }
+    },
+    "CallCenterCall": {
+      "title": "Call Center Call Session",
+      "description": "Active or historical call center calls",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "callerUid": { "type": "string" },
+        "callerName": { "type": "string" },
+        "callerPhoto": { "type": "string" },
+        "status": { "type": "string", "enum": ["ringing", "greeting_playing", "selecting_option", "queued", "answered", "ended", "rejected"] },
+        "selectedLanguage": { "type": "string" },
+        "selectedOption": { "type": "number" },
+        "selectedOptionLabel": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "answeredByUid": { "type": "string" },
+        "answeredByName": { "type": "string" },
+        "answeredAt": { "type": "string" },
+        "endedAt": { "type": "string" },
+        "duration": { "type": "number" },
+        "notes": { "type": "string" },
+        "offer": { "type": "object" },
+        "answer": { "type": "object" },
+        "callerCandidates": { "type": "array" },
+        "adminCandidates": { "type": "array" }
+      },
+      "required": ["callerUid", "callerName", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Messaging groups or DM sessions"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Encrypted messages within a chat"
+    },
+    "/friendRequests/{requestId}": {
+      "schema": "FriendRequest",
+      "description": "Pending and past friend requests"
+    },
+    "/system/{docId}": {
+      "schema": "SystemConfig",
+      "description": "Operational parameters and maintenance policies"
+    },
+    "/social_posts/{postId}": {
+      "schema": "SocialPost",
+      "description": "Social+ user feed posts"
+    },
+    "/social_shorts/{shortId}": {
+      "schema": "MShort",
+      "description": "Social+ vertical videos"
+    },
+    "/social_stories/{storyId}": {
+      "schema": "UserStory",
+      "description": "Social+ temporary stories"
+    },
+    "/social_follows/{followId}": {
+      "schema": "SocialFollow",
+      "description": "Social+ user connections"
+    },
+    "/social_playlists/{playlistId}": {
+      "schema": "SocialPlaylist",
+      "description": "User custom saved collections"
+    },
+    "/call_center_config/{configId}": {
+      "schema": "CallCenterConfig",
+      "description": "Call center greeting and hold music settings"
+    },
+    "/call_center_calls/{callId}": {
+      "schema": "CallCenterCall",
+      "description": "Active and past call center call records"
+    }
+  }
+}

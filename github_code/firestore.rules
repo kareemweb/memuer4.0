@@ -1,0 +1,178 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers (The 8 Pillars) ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+             (request.auth.token.email == 'koke.kozkoz@gmail.com' && request.auth.token.email_verified == true) || (
+               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               ('role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data) &&
+               (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || 
+                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner')
+             )
+           );
+    }
+
+    function isTemporarilyBanned() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             ('bannedUntil' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.bannedUntil is string &&
+             request.time < timestamp(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.bannedUntil);
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Users Collection ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'photoURL', 'publicKey']) &&
+             data.uid is string && data.uid.size() <= 128 &&
+             data.displayName is string && data.displayName.size() <= 200 &&
+             data.photoURL is string && data.photoURL.size() <= 2000 &&
+             data.publicKey is string && data.publicKey.size() <= 2000 &&
+             (!('status' in data) || (data.status is string && data.status.size() <= 1000)) &&
+             (!('isOnline' in data) || data.isOnline is bool) &&
+             (!('lastSeen' in data) || data.lastSeen is string) &&
+             (!('role' in data) || (data.role is string && data.role.size() <= 100)) &&
+             (!('bannedUntil' in data) || (data.bannedUntil is string && data.bannedUntil.size() <= 100)) &&
+             (!('currentPeerId' in data) || data.currentPeerId == null || (data.currentPeerId is string && data.currentPeerId.size() <= 256)) &&
+             (!('preferences' in data) || data.preferences is map);
+    }
+
+    match /users/{userId} {
+      // Identity Protection: Anyone signed in can read directory for connecting
+      // List queries are allowed but client should filter
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      
+      // Ownership Enforcement & Admin Overrides
+      allow create: if isOwner(userId) && incoming().uid == userId && isValidUser(incoming());
+      allow update: if (isOwner(userId) && (
+        // Action: Self Update (including role elevation via secret)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'status', 'isOnline', 'lastSeen', 'preferences', 'publicKey', 'currentPeerId', 'role'])) &&
+        isValidUser(incoming())
+      )) || isAdmin();
+
+      // Action: Administrative Deletion
+      allow delete: if isAdmin();
+    }
+
+    // --- Chats Collection ---
+    function isValidChat(data) {
+      return data.keys().hasAll(['type', 'participants', 'participantKeys']) &&
+             data.type in ['direct', 'group'] &&
+             data.participants is list && data.participants.size() >= 1 &&
+             data.participants.size() <= 100 &&
+             data.participantKeys is map &&
+             (!('archivedBy' in data) || data.archivedBy is list);
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['chatId', 'senderId', 'content', 'type', 'createdAt', 'nonce']) &&
+             data.chatId is string &&
+             data.senderId is string &&
+             data.content is string &&
+             data.content.size() <= 10000000 && // 10MB limit for audio/files
+             data.type in ['text', 'file', 'call', 'audio'] &&
+             (!('duration' in data) || (data.duration is number || data.duration is float)) &&
+             (!('reactions' in data) || data.reactions is map) &&
+             (!('fileMetadata' in data) || data.fileMetadata is map);
+    }
+
+    match /chats/{chatId} {
+      function isParticipant() {
+        return isSignedIn() && (
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+        );
+      }
+
+      allow get: if isSignedIn() && (resource == null || request.auth.uid in existing().participants);
+      allow list: if isSignedIn() && resource.data.participants.hasAny([request.auth.uid]);
+      
+      allow create: if isSignedIn() && !isTemporarilyBanned() && 
+                    incoming().participants.hasAny([request.auth.uid]) &&
+                    isValidChat(incoming());
+      
+      allow update: if isSignedIn() && !isTemporarilyBanned() && (request.auth.uid in existing().participants) && (
+        // Allow updating metadata, participants, typing, lastMessage, etc.
+        isValidChat(incoming())
+      );
+
+      // --- Messages Sub-collection ---
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]);
+        allow create: if isSignedIn() && !isTemporarilyBanned() && 
+                      get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]) &&
+                      (incoming().senderId == request.auth.uid || incoming().senderId == 'memuer-ai') &&
+                      isValidMessage(incoming());
+        allow update: if isSignedIn() && !isTemporarilyBanned() && 
+                      get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]) &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['reactions']) &&
+                      isValidMessage(incoming());
+      }
+    }
+
+    // --- Friend Requests Collection ---
+    function isValidFriendRequest(data) {
+      return data.keys().hasAll(['from', 'to', 'status', 'createdAt']) &&
+             data.from is string && data.to is string &&
+             data.status in ['pending', 'accepted', 'declined'] &&
+             data.createdAt is string;
+    }
+
+    match /friendRequests/{requestId} {
+      allow get: if isSignedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      allow list: if isSignedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      
+      allow create: if isSignedIn() && !isTemporarilyBanned() && incoming().from == request.auth.uid && isValidFriendRequest(incoming());
+      
+      allow update: if isSignedIn() && !isTemporarilyBanned() && 
+                    (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid) &&
+                    incoming().from == existing().from &&
+                    incoming().to == existing().to &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['status']) &&
+                    isValidFriendRequest(incoming());
+    }
+
+    // --- Contact Messages ---
+    match /contact_messages/{msgId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isAdmin();
+    }
+
+    // --- System System Config ---
+    match /system/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- Connection test ---
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

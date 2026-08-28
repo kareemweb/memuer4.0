@@ -1,0 +1,21 @@
+{
+  "name": "memuer Secure Messaging",
+  "short_name": "memuer",
+  "description": "Secure, fast, and minimalist messaging platform.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#312e81",
+  "theme_color": "#312e81",
+  "icons": [
+    {
+      "src": "https://api.dicebear.com/7.x/initials/svg?seed=M&backgroundColor=f43f5e,d946ef,6366f1",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "https://api.dicebear.com/7.x/initials/svg?seed=M&backgroundColor=f43f5e,d946ef,6366f1",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

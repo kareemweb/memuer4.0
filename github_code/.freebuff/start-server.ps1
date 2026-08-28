@@ -1,0 +1,2 @@
+$p = Start-Process -FilePath 'npm.cmd' -ArgumentList 'run','dev' -WorkingDirectory 'C:\Users\Kareem\Downloads\memuer star editon\memuer4.0' -RedirectStandardOutput 'C:\Users\Kareem\Downloads\memuer star editon\memuer4.0\.freebuff\preview-328c8c61-6844-4acf-adc1-41e8b4552198.log' -RedirectStandardError 'C:\Users\Kareem\Downloads\memuer star editon\memuer4.0\.freebuff\preview-328c8c61-6844-4acf-adc1-41e8b4552198.log.err' -WindowStyle Hidden -PassThru
+Write-Output $p.Id

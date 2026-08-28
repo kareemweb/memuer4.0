@@ -1,0 +1,130 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Public and private user profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "status": { "type": "string" },
+        "publicKey": { "type": "string", "description": "Nacl public key for E2EE" },
+        "isOnline": { "type": "boolean" },
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "preferences": {
+          "type": "object",
+          "properties": {
+            "theme": { "type": "string" },
+            "chatBackground": { "type": "string" }
+          }
+        }
+      },
+      "required": ["uid", "displayName"]
+    },
+    "Chat": {
+      "title": "Chat Session",
+      "description": "Conversation between two or more users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["direct", "group"] },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "participantKeys": { 
+          "type": "object", 
+          "description": "Encrypted session keys for each participant (optional if using pure DHT E2EE, but helpful for group E2EE)" 
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "lastMessage": { "type": "string" },
+        "typing": { 
+          "type": "object", 
+          "description": "UserId to typing status (timestamp or boolean)" 
+        },
+        "archivedBy": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of user IDs who have archived this chat"
+        }
+      },
+      "required": ["type", "participants"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Encrypted message in a chat",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "content": { "type": "string", "description": "Base64 encoded encrypted content" },
+        "nonce": { "type": "string", "description": "Base64 encoded nonce for decryption" },
+        "type": { "type": "string", "enum": ["text", "file", "call"] },
+        "fileMetadata": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "size": { "type": "number" },
+            "mimeType": { "type": "string" },
+            "storagePath": { "type": "string" }
+          }
+        },
+        "reactions": {
+          "type": "object",
+          "description": "Emoji reactions mapping emoji to list of user IDs: { '👍': ['uid1', 'uid2'] }"
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chatId", "senderId", "content", "nonce"]
+    },
+    "FriendRequest": {
+      "title": "Friend Request",
+      "description": "Request to establish a connection",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "declined"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["from", "to", "status", "createdAt"]
+    },
+    "SystemConfig": {
+      "title": "System Config",
+      "description": "Global maintenance and settings configuration",
+      "type": "object",
+      "properties": {
+        "maintenanceMode": { "type": "boolean" },
+        "maintenanceUntil": { "type": "string" },
+        "disableAI": { "type": "boolean" },
+        "disableAIUntil": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Messaging groups or DM sessions"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Encrypted messages within a chat"
+    },
+    "/friendRequests/{requestId}": {
+      "schema": "FriendRequest",
+      "description": "Pending and past friend requests"
+    },
+    "/system/{docId}": {
+      "schema": "SystemConfig",
+      "description": "Operational parameters and maintenance policies"
+    }
+  }
+}
